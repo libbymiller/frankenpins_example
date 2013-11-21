@@ -1,0 +1,94 @@
+#!/usr/bin/env ruby
+require 'rubygems'
+require 'bundler/setup'
+require 'pp'
+require 'rest-client'
+#require 'radiodan'
+require 'frankenpins'
+
+$:<< './lib'
+require 'local_config'
+
+encoder_volume = Frankenpins::RotaryEncoder.new(:pin_a => 4, :pin_b => 5)
+encoder_station = Frankenpins::RotaryEncoder.new(:pin_a => 0, :pin_b => 6)
+button_panic = Frankenpins::Button.new(:pin => 3, :pull => :up)
+
+config = LocalConfig.new
+        
+url = config.url_local.url
+
+last_direction = nil
+second_last_direction = nil
+
+encoder_volume.on :changed do |pos, direction|
+  puts "position: #{pos}, direction: #{direction}"
+  pp direction
+  if(direction == :clockwise && last_direction == :clockwise && second_last_direction == :clockwise)
+    begin
+      req = RestClient.get("#{url}lower_volume")
+    rescue Exception=>e
+      puts "rotary encoder problem (lower volume)"
+      puts e
+    end
+  else
+    if(direction == :anticlockwise && last_direction == :anticlockwise && second_last_direction == :anticlockwise)
+      begin
+        req = RestClient.get("#{url}higher_volume")
+      rescue Exception=>e
+        puts "rotary encoder problem (higher volume)"
+        puts e
+      end
+    end
+  end
+  last_direction = direction
+  second_last_direction = last_direction
+end
+
+
+station_last_direction = nil
+station_second_last_direction = nil
+
+encoder_station.on :changed do |pos, direction|
+  puts "position: #{pos}, direction: #{direction} [station]"
+  pp direction
+  if(direction == :clockwise && station_last_direction == :clockwise && station_second_last_direction == :clockwise)
+
+      puts "Clockwise: next"
+      begin
+        req = RestClient.get("#{url}next")
+      rescue Exception=>e
+        puts "Button problem (next)"
+        puts e
+      end
+      sleep 0.2
+  else
+    if(direction == :anticlockwise && station_last_direction == :anticlockwise && station_second_last_direction == :anticlockwise)
+
+      puts "anticlockwise: prev"
+      begin
+        req = RestClient.get("#{url}prev")
+      rescue Exception=>e
+        puts "Button problem (prev)"
+        puts e
+      end
+      sleep 0.2
+
+    end
+  end
+  station_last_direction = direction
+  station_second_last_direction = station_last_direction
+end
+
+button_panic.on :pressed do
+      puts "Button panic pressed: panic"
+      begin
+        req = RestClient.get("#{url}panic")
+      rescue Exception=>e
+        puts "Button problem (panic)"
+        puts e
+      end
+      sleep 0.5
+end
+
+puts "Frankenpins started ok"
+Frankenpins.wait
