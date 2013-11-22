@@ -1,1 +1,1 @@
-app: bundle exec ./bin/start_frankenpins --port $PORT
+app: bundle exec sudo ./bin/start_frankenpins --port $PORT
